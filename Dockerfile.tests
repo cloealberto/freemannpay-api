@@ -1,0 +1,14 @@
+# Use the official Playwright image for Python.
+FROM mcr.microsoft.com/playwright/python:v1.47.0-jammy
+
+WORKDIR /app
+
+# Copy and install the test dependencies.
+COPY tests/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the test suite.
+COPY tests/ ./tests/
+
+# Run pytest against the test directory.
+CMD ["pytest", "tests/", "-v"]
