@@ -1,19 +1,19 @@
-# Payment Simulation API & QA Backend Automation
+# API de Simulação de Pagamentos e Automação de QA para Backend
 
-This project demonstrates the structuring of a complete Quality Assurance architecture for Backend services. The main focus is on contract validation, data integrity, and environment isolation.
+Este projeto demonstra a estruturação de uma arquitetura completa de Quality Assurance para serviços de backend. O foco principal está na validação de contratos, integridade dos dados e isolamento do ambiente.
 
-Instead of consuming public APIs (which frequently lead to *flaky tests* due to third-party data manipulation), this repository contains its own Payment microservice built in **Python (FastAPI)**, automatically tested via **Pytest + Playwright**, and 100% orchestrated via **Docker**.
+Em vez de consumir APIs públicas, que frequentemente geram *flaky tests* devido à manipulação de dados por terceiros, este repositório contém seu próprio microsserviço de pagamentos, construído em **Python (FastAPI)**, testado automaticamente com **Pytest + Playwright** e totalmente orquestrado via **Docker**.
 
-## Tech Stack and Architecture Decisions
+## Tecnologias e Decisões de Arquitetura
 
-*   **FastAPI (Python):** Used to mock the microservice. It provides data predictability and an interactive, auto-generated Swagger documentation.
-*   **Pytest + Playwright (Python):** Stack unification. Using Python for both the API and the test automation reduces context switching and simplifies the handling of complex data types and business rules.
-*   **Docker & Docker Compose:** Total isolation. Guarantees environment parity, allowing the test suite to run identically on any local machine or CI/CD pipeline.
-*   **Healthchecks:** The Docker Compose setup includes healthcheck routines to ensure the test container only starts executing after the API is 100% ready to receive HTTP requests, preventing race conditions.
+*   **FastAPI (Python):** Utilizado para simular o microsserviço. Oferece previsibilidade dos dados e uma documentação Swagger interativa, gerada automaticamente.
+*   **Pytest + Playwright (Python):** Unificação da stack. Usar Python tanto na API quanto na automação de testes reduz a troca de contexto e simplifica o tratamento de tipos de dados complexos e regras de negócio.
+*   **Docker e Docker Compose:** Isolamento total. Garante a paridade entre ambientes, permitindo que a suíte de testes seja executada da mesma forma em qualquer máquina local ou pipeline de CI/CD.
+*   **Healthchecks:** A configuração do Docker Compose inclui verificações de saúde para garantir que o container de testes só comece a execução depois que a API estiver 100% pronta para receber requisições HTTP, evitando condições de corrida.
 
 ---
 
-## Project Structure
+## Estrutura do Projeto
 
 ```text
 api-automation-payments/
@@ -23,44 +23,49 @@ api-automation-payments/
 ├── tests/
 │   ├── conftest.py            
 │   ├── test_payments.py     
-│   └── requirements.txt       
+│   ├── requirements.txt       
+│   └── features/
+│       ├── payment_creation.feature
+│       └── payment_query.feature
 ├── Dockerfile.tests       
 ├── docker-compose.yml         
 └── run-tests.ps1
 ```
 
-## Testing Strategy and Data Validation
+## Estratégia de Testes e Validação de Dados
 
-The automation was designed with a strong emphasis on **Data Quality**, applying formal software testing techniques to HTTP traffic.
+A automação foi projetada com forte ênfase em **Qualidade de Dados**, aplicando técnicas formais de teste de software ao tráfego HTTP.
 
-### 1. Separation of Concerns (Clean Code)
+### 1. Separação de Responsabilidades (Clean Code)
 
-The `conftest.py` file centralizes the creation of the network session (`APIRequestContext`) using Pytest **fixtures**. This ensures the test files contain only business rules, adhering to the Single Responsibility Principle (SRP) and making the project highly scalable if the API requires authentication tokens in the future.
+O arquivo `conftest.py` centraliza a criação da sessão de rede (`APIRequestContext`) usando **fixtures** do Pytest. Isso garante que os arquivos de teste contenham apenas as regras de negócio, seguindo o princípio da responsabilidade única (SRP) e tornando o projeto altamente escalável caso a API precise de tokens de autenticação no futuro.
 
-### 2. Happy Path and Transactional Integrity (GET & POST)
+O diretório `tests/features/` documenta os critérios de aceite de cada User Story. O arquivo `payment_creation.feature` corresponde à PAY-101, enquanto `payment_query.feature` corresponde à PAY-102. Os testes automatizados em `test_payments.py` seguem a mesma ordem das User Stories para facilitar a rastreabilidade.
 
-The suite ensures the successful creation (`POST`) and retrieval (`GET`) of financial resources.
+### 2. Caminho Feliz e Integridade Transacional (GET e POST)
 
-- **Analytical approach:** The test validates the correct generation of the primary key (`id`) and the initial business state (`PENDING`). Strict type validation (`isinstance`) ensures the financial value is returned as a floating-point number (`float`), preventing precision loss from affecting downstream integrations such as databases or BI dashboards.
+A suíte garante a criação (`POST`) e a consulta (`GET`) bem-sucedidas de recursos financeiros.
 
-### 3. Negative Scenario and Equivalence Partitioning
+- **Abordagem analítica:** O teste valida a geração correta da chave primária (`id`) e o estado inicial de negócio (`PENDING`). A validação estrita de tipo (`isinstance`) garante que o valor financeiro seja retornado como número de ponto flutuante (`float`), evitando que a perda de precisão afete integrações posteriores, como bancos de dados ou dashboards de BI.
 
-- **Applied technique:** Use of **Equivalence Partitioning**. According to the business rule, any financial value less than or equal to zero belongs to the invalid class.
-- The test sends a payload with a negative amount (`-50.00`) and asserts that the backend blocks the anomaly at the entry point, returns a `400 Bad Request` status, and outputs the exact exception message defined in the contract.
+### 3. Cenário Negativo e Particionamento de Equivalência
 
-## How to Run Locally
+- **Técnica aplicada:** Uso do **Particionamento de Equivalência**. De acordo com a regra de negócio, qualquer valor financeiro menor ou igual a zero pertence à classe inválida.
+- O teste envia um payload com valor negativo (`-50.00`) e verifica se o backend bloqueia a anomalia na entrada, retorna o status `400 Bad Request` e apresenta a mensagem exata de exceção definida no contrato.
 
-Because the project is orchestrated via Docker, there is no need to install local dependencies on your machine other than Docker itself.
+## Como Executar Localmente
 
-1. Clone the repository.
-2. Navigate to the project's root folder.
-3. Execute the orchestration command or run the `run-tests.ps1` script:
+Como o projeto é orquestrado via Docker, não é necessário instalar dependências locais na máquina, além do próprio Docker.
+
+1. Clone o repositório.
+2. Navegue até a pasta raiz do projeto.
+3. Execute o comando de orquestração ou rode o script `run-tests.ps1`:
 
 ```bash
 docker-compose up --build
 ```
 
-Docker will download the necessary images, start the API on port `8000` after validating its health status, and execute the Pytest suite in an isolated container.
+O Docker fará o download das imagens necessárias, iniciará a API na porta `8000` após validar seu estado de saúde e executará a suíte do Pytest em um container isolado.
 
-To access the interactive API documentation generated automatically by Swagger, open your browser and navigate to [`http://localhost:8000/docs`](http://localhost:8000/docs).
+Para acessar a documentação interativa da API, gerada automaticamente pelo Swagger, abra o navegador e acesse [`http://localhost:8000/docs`](http://localhost:8000/docs).
 
