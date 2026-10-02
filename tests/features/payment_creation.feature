@@ -1,3 +1,5 @@
+# language: pt
+
 Funcionalidade: Criação de Transação de Pagamento [PAY-101]
 
   Como um sistema parceiro (Front-end/BFF)
@@ -14,3 +16,4 @@ Funcionalidade: Criação de Transação de Pagamento [PAY-101]
     Dado a regra de negócio de que valores financeiros devem ser maiores que zero
     Quando eu envio um payload com o valor negativo de "-50.00"
     Então o sistema deve barrar a transação na entrada e retornar o status code 400 (Bad Request)
+    E a resposta deve informar que o valor deve ser maior que zero

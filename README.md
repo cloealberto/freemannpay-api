@@ -7,7 +7,7 @@ Em vez de consumir APIs públicas, que frequentemente geram *flaky tests* devido
 ## Tecnologias e Decisões de Arquitetura
 
 *   **FastAPI (Python):** Utilizado para simular o microsserviço. Oferece previsibilidade dos dados e uma documentação Swagger interativa, gerada automaticamente.
-*   **Pytest + Playwright (Python):** Unificação da stack. Usar Python tanto na API quanto na automação de testes reduz a troca de contexto e simplifica o tratamento de tipos de dados complexos e regras de negócio.
+*   **Pytest + pytest-bdd + Playwright (Python):** Os cenários Gherkin em `tests/features/` são executados como testes automatizados, com chamadas HTTP reais à API via Playwright.
 *   **Docker e Docker Compose:** Isolamento total. Garante a paridade entre ambientes, permitindo que a suíte de testes seja executada da mesma forma em qualquer máquina local ou pipeline de CI/CD.
 *   **Healthchecks:** A configuração do Docker Compose inclui verificações de saúde para garantir que o container de testes só comece a execução depois que a API estiver 100% pronta para receber requisições HTTP, evitando condições de corrida.
 
@@ -23,10 +23,12 @@ api-automation-payments/
 ├── tests/
 │   ├── conftest.py            
 │   ├── test_payments.py     
+│   ├── test_authorization.py
 │   ├── requirements.txt       
 │   └── features/
 │       ├── payment_creation.feature
-│       └── payment_query.feature
+│       ├── payment_query.feature
+│       └── payment_authorization.feature
 ├── Dockerfile.tests       
 ├── docker-compose.yml         
 └── run-tests.ps1
@@ -34,13 +36,13 @@ api-automation-payments/
 
 ## Estratégia de Testes e Validação de Dados
 
-A automação foi projetada com forte ênfase em **Qualidade de Dados**, aplicando técnicas formais de teste de software ao tráfego HTTP.
+A automação foi projetada com forte ênfase em **Qualidade de Dados**, aplicando técnicas formais de teste de software ao tráfego HTTP. O pytest-bdd liga cada cenário dos arquivos Gherkin a passos Python e exibe o nome do cenário durante a execução.
 
 ### 1. Separação de Responsabilidades (Clean Code)
 
 O arquivo `conftest.py` centraliza a criação da sessão de rede (`APIRequestContext`) usando **fixtures** do Pytest. Isso garante que os arquivos de teste contenham apenas as regras de negócio, seguindo o princípio da responsabilidade única (SRP) e tornando o projeto altamente escalável caso a API precise de tokens de autenticação no futuro.
 
-O diretório `tests/features/` documenta os critérios de aceite de cada User Story. O arquivo `payment_creation.feature` corresponde à PAY-101, enquanto `payment_query.feature` corresponde à PAY-102. Os testes automatizados em `test_payments.py` seguem a mesma ordem das User Stories para facilitar a rastreabilidade.
+O diretório `tests/features/` contém os critérios de aceite executáveis. `test_payments.py` associa os cenários de criação (PAY-101) e consulta (PAY-102) a passos Python; `test_authorization.py` associa os cenários de autorização (PAY-103). Os testes usam as fixtures HTTP centralizadas em `conftest.py`.
 
 ### 2. Caminho Feliz e Integridade Transacional (GET e POST)
 
@@ -55,17 +57,32 @@ A suíte garante a criação (`POST`) e a consulta (`GET`) bem-sucedidas de recu
 
 ## Como Executar Localmente
 
-Como o projeto é orquestrado via Docker, não é necessário instalar dependências locais na máquina, além do próprio Docker.
+Como o projeto é orquestrado via Docker, não é necessário instalar dependências locais na máquina, além do próprio Docker. O PostgreSQL também é iniciado pelo Compose, isolado do PostgreSQL instalado no Windows. A API cria a tabela `payments` automaticamente quando inicia.
 
-1. Clone o repositório.
-2. Navegue até a pasta raiz do projeto.
+1. Navegue até a pasta raiz do projeto.
+2. Crie ou edite o arquivo `.env` e configure as variáveis abaixo. Não compartilhe nem versione esse arquivo:
+
+```dotenv
+PAYMENT_API_TOKEN=seu-token-local
+POSTGRES_DB=freemannpay
+POSTGRES_USER=freemannpay
+POSTGRES_PASSWORD=uma-senha-forte-local
+```
+
 3. Execute o comando de orquestração ou rode o script `run-tests.ps1`:
 
 ```bash
-docker-compose up --build
+docker compose up --build --abort-on-container-exit --exit-code-from tests
 ```
 
-O Docker fará o download das imagens necessárias, iniciará a API na porta `8000` após validar seu estado de saúde e executará a suíte do Pytest em um container isolado.
+O Docker fará o download das imagens necessárias, iniciará o PostgreSQL e, após sua verificação de saúde, iniciará a API na porta `8000` e executará a suíte do Pytest em um container isolado. O banco fica acessível no host pela porta `5433`, evitando conflito com uma instalação local que já use a porta `5432`. Os dados são preservados no volume `postgres_data`, inclusive após `docker-compose down`; não use `docker-compose down -v` se quiser mantê-los.
+
+Para executar somente os testes de autorização no PowerShell, use:
+
+```powershell
+.\run-auth-tests.ps1
+```
+
+Esse script aguarda a API ficar saudável e roda `tests/test_authorization.py`; os containers da API e do banco permanecem ativos após os testes. Para executar somente esse arquivo sem o script, use `docker compose up -d --wait api` e depois `docker compose run --build --rm --no-deps tests pytest tests/test_authorization.py -v`.
 
 Para acessar a documentação interativa da API, gerada automaticamente pelo Swagger, abra o navegador e acesse [`http://localhost:8000/docs`](http://localhost:8000/docs).
-

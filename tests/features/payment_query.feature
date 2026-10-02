@@ -1,3 +1,5 @@
+# language: pt
+
 Funcionalidade: Consulta de Status de Transação por ID [PAY-102]
 
   Como um sistema parceiro ou serviço de conciliação

@@ -1,4 +1,20 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
   api:
     image: python:3.12-slim
     working_dir: /app
@@ -6,6 +22,16 @@ services:
       - "8000:8000"
     volumes:
       - ./api:/app
+    environment:
+      PAYMENT_API_TOKEN: ${PAYMENT_API_TOKEN:?Set PAYMENT_API_TOKEN in .env}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    depends_on:
+      db:
+        condition: service_healthy
     command: sh -c "pip install --no-cache-dir -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
@@ -17,6 +43,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.tests
+    environment:
+      PAYMENT_API_TOKEN: ${PAYMENT_API_TOKEN:?Set PAYMENT_API_TOKEN in .env}
     depends_on:
       api:
         condition: service_healthy
+
+volumes:
+  postgres_data:
